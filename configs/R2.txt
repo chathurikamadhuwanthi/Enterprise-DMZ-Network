@@ -1,1 +1,58 @@
-
+interface GigabitEthernet0/0
+ description To-ISP
+ ip address 203.0.113.2 255.255.255.252
+ ip access-group FROM-INTERNET in
+ ip nat outside
+ duplex auto
+ speed auto
+!
+interface GigabitEthernet0/1
+ description DMZ
+ ip address 172.16.100.1 255.255.255.0
+ ip access-group DMZ-IN in
+ ip nat inside
+ duplex auto
+ speed auto
+!
+interface GigabitEthernet0/2
+ description To-Core1
+ ip address 10.0.0.1 255.255.255.252
+ ip nat inside
+ duplex auto
+ speed auto
+!
+interface Vlan1
+ no ip address
+ shutdown
+!
+router ospf 1
+ router-id 2.2.2.2
+ log-adjacency-changes
+ passive-interface GigabitEthernet0/0
+ passive-interface GigabitEthernet0/1
+ network 10.0.0.0 0.0.0.3 area 0
+ network 172.16.100.0 0.0.0.255 area 0
+ default-information originate
+!
+ip nat inside source list 1 interface GigabitEthernet0/0 overload
+ip nat inside source static tcp 172.16.100.10 80 203.0.113.2 80 
+ip nat inside source static udp 172.16.100.11 53 203.0.113.2 53 
+ip classless
+ip route 0.0.0.0 0.0.0.0 203.0.113.1 
+!
+ip flow-export version 9
+!
+!
+access-list 1 permit 192.168.0.0 0.0.255.255
+ip access-list extended FROM-INTERNET
+ permit tcp any host 203.0.113.2 eq www
+ permit udp any host 203.0.113.2 eq domain
+ permit tcp any any established
+ permit icmp any any echo-reply
+ deny ip any any
+ip access-list extended DMZ-IN
+ permit tcp 172.16.100.0 0.0.0.255 any established
+ permit udp host 172.16.100.11 eq domain 192.168.0.0 0.0.255.255
+ permit icmp 172.16.100.0 0.0.0.255 192.168.0.0 0.0.255.255 echo-reply
+ deny ip 172.16.100.0 0.0.0.255 192.168.0.0 0.0.255.255
+ permit ip any any
